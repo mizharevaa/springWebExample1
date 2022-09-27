@@ -1,10 +1,20 @@
 package com.springWebExample1.springWebExample1;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
+import org.springframework.context.annotation.Bean;
+import org.springframework.data.repository.CrudRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
+
+import javax.annotation.PostConstruct;
+import javax.persistence.Entity;
+import javax.persistence.Id;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -12,22 +22,34 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+
 @SpringBootApplication
+@ConfigurationPropertiesScan
 public class SpringWebExample1Application {
 
 	public static void main(String[] args) {
 		SpringApplication.run(SpringWebExample1Application.class, args);
 	}
 
+	@Bean
+	@ConfigurationProperties(prefix = "droid")
+	Droid createDroid(){
+		return new Droid();
+	}
+
 }
 
+interface CoffeeRepository extends CrudRepository<Coffee, String> {
+
+}
+@Entity
 class Coffee {
-	private final String id;
+	@Id
+	private String id;
 	private String name;
 
 	public Coffee(String id, String name){
@@ -40,8 +62,16 @@ class Coffee {
 		this.name = name;
 	}
 
+	public Coffee(){
+
+	}
+
 	public String getId() {
 		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
 	}
 
 	public String getName() {
@@ -53,35 +83,43 @@ class Coffee {
 	}
 }
 
+@Component
+class DataLoader {
+	private final CoffeeRepository coffeeRepository;
+
+	public DataLoader(CoffeeRepository coffeeRepository){
+		this.coffeeRepository = coffeeRepository;
+	}
+
+	@PostConstruct
+	private void loadData(){
+		coffeeRepository.saveAll(List.of(
+				new Coffee("Cafe Cereza"),
+				new Coffee("Cafe Ganador"),
+				new Coffee("Cafe Lareno"),
+				new Coffee("Cafe Tres Pontas")
+		));
+	}
+}
+
 @RestController
 @RequestMapping(value = "/")
 class RestApiDemoController {
-	private List<Coffee> coffees = new ArrayList<>();
 
-	public RestApiDemoController(){
-		coffees.addAll(List.of(
-			new Coffee("Cafe Cereza"),
-			new Coffee("Cafe Ganador"),
-			new Coffee("Cafe Lareno"),
-			new Coffee("Cafe Tres Pontas")
-		));
+	private final CoffeeRepository coffeeRepository;
+
+	public RestApiDemoController(CoffeeRepository coffeeRepository){
+		this.coffeeRepository = coffeeRepository;
 	}
 
 	@GetMapping("/coffees")
 	Iterable<Coffee> getCoffees(){
-		return coffees;
+		return coffeeRepository.findAll();
 	}
 
 	@GetMapping("/coffees/{id}")
 	Optional<Coffee> getCoffeeById(@PathVariable String id){
-
-		for (Coffee c : coffees){
-			if (c.getId().equals(id)){
-				return Optional.of(c);
-			}
-		}
-
-		return Optional.empty();
+		return coffeeRepository.findById(id);
 	}
 
 	@GetMapping("/license")
@@ -105,28 +143,74 @@ class RestApiDemoController {
 
 	@PostMapping("/coffees")
 	Coffee postCoffee(@RequestBody Coffee coffee){
-		coffees.add(coffee);
-		return coffee;
+		return coffeeRepository.save(coffee);
 	}
 
 	@PutMapping("/coffees/{id}")
 	ResponseEntity<Coffee> putCoffee(@PathVariable String id, @RequestBody Coffee coffee){
-		int coffeeIndex = -1;
-
-		for (Coffee c : coffees){
-			if (c.getId().equals(id)){
-				coffeeIndex = coffees.indexOf(c);
-				coffees.set(coffeeIndex, coffee);
-			}
-		}
-
-		return coffeeIndex == -1 ? new ResponseEntity<>(postCoffee(coffee), HttpStatus.CREATED) : new ResponseEntity<>(coffee, HttpStatus.OK);
+		return (!coffeeRepository.existsById(id)) ? new ResponseEntity<>(coffeeRepository.save(coffee), HttpStatus.CREATED) : new ResponseEntity<>(coffeeRepository.save(coffee), HttpStatus.OK);
 	}
 
 	@DeleteMapping("/coffees/{id}")
 	void deleteCoffee(@PathVariable String id){
-		coffees.removeIf(c -> c.getId().equals(id));
+		coffeeRepository.deleteById(id);
 	}
 
 }
 
+@ConfigurationProperties(prefix = "greeting")
+class Greeting{
+	private String name;
+	private String coffee;
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getCoffee() {
+		return coffee;
+	}
+
+	public void setCoffee(String coffee) {
+		this.coffee = coffee;
+	}
+}
+
+@RestController
+@RequestMapping("/greeting")
+class GreetingController{
+	private final Greeting greeting;
+
+	public GreetingController(Greeting greeting){
+		this.greeting = greeting;
+	}
+
+	@GetMapping
+	String getGreeting(){
+		return greeting.getName();
+	}
+
+	@GetMapping("/coffee")
+	String getNameAndCoffee(){
+		return greeting.getCoffee();
+	}
+}
+
+@RestController
+@RequestMapping("/droid")
+class DroidController{
+	private final Droid droid;
+
+	public DroidController(Droid droid){
+		this.droid = droid;
+	}
+
+	@GetMapping
+	Droid getDroid(){
+		return droid;
+	}
+}
