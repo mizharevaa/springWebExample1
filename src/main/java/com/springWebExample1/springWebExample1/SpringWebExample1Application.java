@@ -23,13 +23,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.text.Normalizer;
-import java.util.Enumeration;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import static org.springframework.util.StreamUtils.BUFFER_SIZE;
 
@@ -130,7 +132,7 @@ class RestApiDemoController {
 	}
 
 	@GetMapping("/license")
-	boolean getLicense() throws IOException {
+	boolean getLicense()  {
 
 		String urlToGetFrom = "https://dom.gosuslugi.ru/filestore/publicDownloadAllFilesServlet?context=licenses&uids=2b71a7fe-36d5-412f-8227-7c7c75f0cb73&zipFileName=%D0%A0%D0%B5%D0%B5%D1%81%D1%82%D1%80%20%D0%BB%D0%B8%D1%86%D0%B5%D0%BD%D0%B7%D0%B8%D0%B9%20%D1%81%D1%83%D0%B1%D1%8A%D0%B5%D0%BA%D1%82%D0%B0%20%D0%A0%D0%A4%20%D0%A1%D0%B0%D0%BC%D0%B0%D1%80%D1%81%D0%BA%D0%B0%D1%8F%20%D0%BE%D0%B1%D0%BB%D0%B0%D1%81%D1%82%D1%8C.zip"; // URL to get it from
 
@@ -152,9 +154,8 @@ class RestApiDemoController {
 			ZipEntry zipEntry;
 			while ((zipEntry = zipIn.getNextEntry()) != null) {
 
-				System.out.println(zipEntry.getName());
 				if(zipEntry.getName().endsWith(".xlsx")){
-					Files.copy(zipIn, Path.of("D:/Лицензии/Тек_реестр.xlsx"));
+					Files.copy(zipIn, Path.of("D:/Лицензии/Тек_реестр.xlsx"),StandardCopyOption.REPLACE_EXISTING);
 				}
 
 			}
@@ -162,6 +163,56 @@ class RestApiDemoController {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+
+
+
+
+		try {
+			FileInputStream file = new FileInputStream(new File("D:/Лицензии/Тек_реестр.xlsx"));
+			XSSFWorkbook workbook = new XSSFWorkbook(file);
+			XSSFSheet sheet = workbook.getSheetAt(0);
+
+
+			Iterator<Row> rowIterator = sheet.iterator();
+			int rowCount = 5; // to skip the first row, which is a header
+
+
+			while (rowIterator.hasNext()) {
+				Row row = rowIterator.next();
+				rowCount++;
+
+				//from 2nd row onwards, after skipping header
+				if (rowCount > 5) {
+
+					// For each row, iterate through each columns
+					Iterator<Cell> cellIterator = row.cellIterator();
+					while (cellIterator.hasNext()) {
+						Cell cell = cellIterator.next();
+
+//						if (cell.getColumnIndex() == 2) {
+
+							System.out.println(cell.getStringCellValue());
+
+//						} else {
+//							throw new RuntimeException("Unexpected index");
+//						}
+
+					}
+				}
+
+			}
+
+
+		}catch (IOException e) {
+			e.printStackTrace();
+		};
+
+
+
+
+
+
+
 
 		return true;
 
