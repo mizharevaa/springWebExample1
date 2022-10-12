@@ -15,16 +15,23 @@ import org.springframework.web.bind.annotation.*;
 import javax.annotation.PostConstruct;
 import javax.persistence.Entity;
 import javax.persistence.Id;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.text.Normalizer;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
+
+import static org.springframework.util.StreamUtils.BUFFER_SIZE;
 
 
 @SpringBootApplication
@@ -123,22 +130,41 @@ class RestApiDemoController {
 	}
 
 	@GetMapping("/license")
-	boolean getLicense() {
+	boolean getLicense() throws IOException {
 
 		String urlToGetFrom = "https://dom.gosuslugi.ru/filestore/publicDownloadAllFilesServlet?context=licenses&uids=2b71a7fe-36d5-412f-8227-7c7c75f0cb73&zipFileName=%D0%A0%D0%B5%D0%B5%D1%81%D1%82%D1%80%20%D0%BB%D0%B8%D1%86%D0%B5%D0%BD%D0%B7%D0%B8%D0%B9%20%D1%81%D1%83%D0%B1%D1%8A%D0%B5%D0%BA%D1%82%D0%B0%20%D0%A0%D0%A4%20%D0%A1%D0%B0%D0%BC%D0%B0%D1%80%D1%81%D0%BA%D0%B0%D1%8F%20%D0%BE%D0%B1%D0%BB%D0%B0%D1%81%D1%82%D1%8C.zip"; // URL to get it from
 
-		try {
-			URL fetchWebsite = new URL(urlToGetFrom);
 
-			Path path = Paths.get("D:/Лицензии/Тек_реестр.zip");
-			try (InputStream inputStream = fetchWebsite.openStream()) {
-				Files.copy(inputStream, path, StandardCopyOption.REPLACE_EXISTING);
+//		try {
+//			URL fetchWebsite = new URL(urlToGetFrom);
+//
+//			Path path = Paths.get("D:/Лицензии/Тек_реестр.zip");
+//			try (InputStream inputStream = fetchWebsite.openStream()) {
+//				Files.copy(inputStream, path, StandardCopyOption.REPLACE_EXISTING);
+//			}
+//		} catch (IOException e) {
+//			e.printStackTrace();
+//		}
+
+		try (ZipInputStream zipIn = new ZipInputStream( new BufferedInputStream(new FileInputStream("D:/Лицензии/Тек_реестр.zip"), BUFFER_SIZE),
+				Charset.forName("windows-1251"))) {
+
+			ZipEntry zipEntry;
+			while ((zipEntry = zipIn.getNextEntry()) != null) {
+
+				System.out.println(zipEntry.getName());
+				if(zipEntry.getName().endsWith(".xlsx")){
+					Files.copy(zipIn, Path.of("D:/Лицензии/Тек_реестр.xlsx"));
+				}
+
 			}
+
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 
 		return true;
+
 	}
 
 	@PostMapping("/coffees")
